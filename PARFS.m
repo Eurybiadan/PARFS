@@ -329,7 +329,7 @@ for f=1 : size(stack_fname,1)
                 if m== ref_best_modality_inds(r)
                     [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
                     dmb_contents.n_frames = int32(num_frames(f,m));
-                else
+                elseif ~isempty(stack_fname{f,m})
                     [par, kid]=getparent(stack_fname{f,m});
                     dmb_contents.secondary_sequences_file_names = [dmb_contents.secondary_sequences_file_names; {kid}];
                     dmb_contents.secondary_sequences_absolute_paths = [dmb_contents.secondary_sequences_absolute_paths; {par}];                    
@@ -337,8 +337,15 @@ for f=1 : size(stack_fname,1)
             end
             dmb_contents.user_defined_suffix = ['_ref_' num2str(bestrefs(r)) '_lps_' num2str(LPS) '_lbss_' num2str(LBSS) '_autogen' ];
             
+            if isempty(dmb_contents.secondary_sequences_file_names)
+               dmb_contents.secondary_sequences_file_names=''; 
+            end
+            if isempty(dmb_contents.secondary_sequences_absolute_paths)
+               dmb_contents.secondary_sequences_absolute_paths=''; 
+            end
+            
 %             save('test.mat','dmb_contents');
-            write_dmb_file([dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb'],dmb_contents);
+            write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
         end
 
     end
