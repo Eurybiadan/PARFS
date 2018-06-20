@@ -49,6 +49,13 @@ if count(py.sys.path,thispath) == 0
     insert(py.sys.path,int32(0),thispath);
 end
 
+if isunix
+    RTLD_NOW = 2;
+    RTLD_DEEPBIND = 8;
+    flag = bitor(RTLD_NOW, RTLD_DEEPBIND);    
+    py.sys.setdlopenflags(int32(flag));
+end
+
 py.matlab_pickler.pickle_mat(dmb_fullpath,dmb_dict);   
 
 end
