@@ -326,7 +326,7 @@ for f=1 : size(stack_fname,1)
             if ~isnan(bestrefs(r))
                 dmb_contents = default_dmb_contents;
 
-                dmb_contents.reference_frame = int32(bestrefs(r));
+                dmb_contents.reference_frame = int32(bestrefs(r)-1);
                 for m=1:length(MODALITIES)
                     if m== ref_best_modality_inds(r)
                         [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
@@ -346,7 +346,7 @@ for f=1 : size(stack_fname,1)
                    dmb_contents.secondary_sequences_absolute_paths=''; 
                 end
 
-    %             save('test.mat','dmb_contents');
+                 save('test.mat','dmb_contents');
                 write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
             end
         end
