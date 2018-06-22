@@ -291,7 +291,7 @@ for f=1 : size(stack_fname,1)
         if length(newrefs{g})>=NUM_REF_OUTPUT
             bestrefs = newrefs{g}(1:NUM_REF_OUTPUT)';
         else
-            bestrefs = padarray(newrefs{g},[NUM_REF_OUTPUT-length(newrefs{g}) 0], -1,'post')';
+            bestrefs = padarray(newrefs{g},[NUM_REF_OUTPUT-length(newrefs{g}) 0], NaN,'post')';
         end
         ref_best_modality = cell(size(bestrefs));
         ref_best_modality_inds = zeros(size(bestrefs));
@@ -322,30 +322,33 @@ for f=1 : size(stack_fname,1)
         fclose(fid);
         
         for r=1:length(bestrefs)
-            dmb_contents = default_dmb_contents;
-                
-            dmb_contents.reference_frame = int32(bestrefs(r));
-            for m=1:length(MODALITIES)
-                if m== ref_best_modality_inds(r)
-                    [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
-                    dmb_contents.n_frames = int32(num_frames(f,m));
-                elseif ~isempty(stack_fname{f,m})
-                    [par, kid]=getparent(stack_fname{f,m});
-                    dmb_contents.secondary_sequences_file_names = [dmb_contents.secondary_sequences_file_names; {kid}];
-                    dmb_contents.secondary_sequences_absolute_paths = [dmb_contents.secondary_sequences_absolute_paths; {par}];                    
+            
+            if ~isnan(bestrefs(r))
+                dmb_contents = default_dmb_contents;
+
+                dmb_contents.reference_frame = int32(bestrefs(r));
+                for m=1:length(MODALITIES)
+                    if m== ref_best_modality_inds(r)
+                        [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
+                        dmb_contents.n_frames = int32(num_frames(f,m));
+                    elseif ~isempty(stack_fname{f,m})
+                        [par, kid]=getparent(stack_fname{f,m});
+                        dmb_contents.secondary_sequences_file_names = [dmb_contents.secondary_sequences_file_names; {kid}];
+                        dmb_contents.secondary_sequences_absolute_paths = [dmb_contents.secondary_sequences_absolute_paths; {par}];                    
+                    end
                 end
+                dmb_contents.user_defined_suffix = ['_ref_' num2str(bestrefs(r)) '_lps_' num2str(LPS) '_lbss_' num2str(LBSS) '_autogen' ];
+
+                if isempty(dmb_contents.secondary_sequences_file_names)
+                   dmb_contents.secondary_sequences_file_names=''; 
+                end
+                if isempty(dmb_contents.secondary_sequences_absolute_paths)
+                   dmb_contents.secondary_sequences_absolute_paths=''; 
+                end
+
+    %             save('test.mat','dmb_contents');
+                write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
             end
-            dmb_contents.user_defined_suffix = ['_ref_' num2str(bestrefs(r)) '_lps_' num2str(LPS) '_lbss_' num2str(LBSS) '_autogen' ];
-            
-            if isempty(dmb_contents.secondary_sequences_file_names)
-               dmb_contents.secondary_sequences_file_names=''; 
-            end
-            if isempty(dmb_contents.secondary_sequences_absolute_paths)
-               dmb_contents.secondary_sequences_absolute_paths=''; 
-            end
-            
-%             save('test.mat','dmb_contents');
-            write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
         end
 
     end
