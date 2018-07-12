@@ -23,7 +23,7 @@ MIN_NUM_FRAMES_PER_GROUP = params.MIN_NUM_FRAMES_PER_GROUP; % 5; % A group must 
 LPS = int32(params.LPS); % int32(12);
 LBSS = int32(params.LBSS); % int32(6);
 OVERLAP = int32(params.OVERLAP); % int32(5);
-NUM_FRAMES = int32(params.NUM_FRAMES'); % int32(50);
+NUM_FRAMES = int32(params.NUM_FRAMES); % int32(50);
 THRESHOLD = params.THRESHOLD; % 0.7;
 OUTPUT_TIFS = params.OUTPUT_TIFS; % true;
 OUTPUT_AVIS = params.OUTPUT_TIFS; % true;
@@ -346,7 +346,7 @@ for f=1 : size(stack_fname,1)
                    dmb_contents.secondary_sequences_absolute_paths=''; 
                 end
 
-                 save('test.mat','dmb_contents');
+%                  save('test.mat','dmb_contents');
                 write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
             end
         end

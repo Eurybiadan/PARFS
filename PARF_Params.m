@@ -328,9 +328,10 @@ function num_frames_Callback(hObject, eventdata, handles)
 % hObject    handle to num_frames (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-value = cell2mat(cellfun(@str2num, split(get(hObject,'String'),','),'UniformOutput',false));
 
-if isempty(value)    
+value = cell2mat(cellfun(@str2double, strsplit(get(hObject,'String'),','),'UniformOutput',false));
+
+if isempty(value) || any(isnan(value))
     set(hObject,'String', num2str(handles.NUM_FRAMES))
 else
     handles.NUM_FRAMES = value;
