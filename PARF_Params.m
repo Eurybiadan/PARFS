@@ -22,7 +22,7 @@ function varargout = PARF_Params(varargin)
 
 % Edit the above text to modify the response to help PARF_Params
 
-% Last Modified by GUIDE v2.5 19-Jun-2018 09:59:16
+% Last Modified by GUIDE v2.5 12-Jul-2018 11:05:25
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -70,6 +70,7 @@ handles.OVERLAP = str2double( get(handles.overlap,'String') );
 handles.NUM_FRAMES = str2double( get(handles.num_frames,'String') );
 handles.THRESHOLD = str2double( get(handles.threshold,'String') );
 handles.OUTPUT_TIFS = get(handles.output_tifs,'Value')==1;
+handles.OUTPUT_FF_TIFS = get(handles.output_ff_tifs,'Value')==1;
 handles.OUTPUT_AVIS = get(handles.output_vids,'Value')==1;
 
 % Update handles structure
@@ -105,6 +106,7 @@ if ~handles.cancelled
     output.NUM_FRAMES = handles.NUM_FRAMES;
     output.THRESHOLD = handles.THRESHOLD;
     output.OUTPUT_TIFS = handles.OUTPUT_TIFS;
+    output.OUTPUT_FF_TIFS = handles.OUTPUT_FF_TIFS;
     output.OUTPUT_AVIS = handles.OUTPUT_AVIS;
 end
 
@@ -437,3 +439,17 @@ guidata(hObject, handles);
 
 uiresume(handles.figure1);
 
+
+% --- Executes on button press in output_ff_tifs.
+function output_ff_tifs_Callback(hObject, eventdata, handles)
+% hObject    handle to output_ff_tifs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+value = get(hObject,'Value');
+
+if isnan(value)    
+    set(hObject,'Value', handles.OUTPUT_FF_TIFS)
+else
+    handles.OUTPUT_FF_TIFS = value;
+end
+% Hint: get(hObject,'Value') returns toggle state of output_ff_tifs
