@@ -10,7 +10,6 @@
 clear;
 close all force;
 
-
 params = PARF_Params;
 
 NUM_REF_OUTPUT = params.NUM_REF_OUTPUT; % 5;
@@ -114,7 +113,7 @@ dmb_file_to_load=cell(size(lut,1),1);
 dmb_path_to_load=cell(size(lut,1),1);
 
 for p=1:size(unique_pp_fringes,1)
-    [dmb_fname, dmb_path]=uigetfile(fullfile(pwd,'*.mat'),['Select the ***' num2str(unique_pp_fringes(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
+    [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_pp_fringes(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
     dmb_file_to_load(pp_fringes==unique_pp_fringes(p))={dmb_fname};
     dmb_path_to_load(pp_fringes==unique_pp_fringes(p))={dmb_path};
 end
