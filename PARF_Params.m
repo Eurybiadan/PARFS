@@ -452,4 +452,5 @@ if isnan(value)
 else
     handles.OUTPUT_FF_TIFS = value;
 end
+guidata(hObject, handles);
 % Hint: get(hObject,'Value') returns toggle state of output_ff_tifs
