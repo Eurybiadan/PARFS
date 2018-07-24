@@ -26,7 +26,7 @@ NUM_FRAMES = int32(params.NUM_FRAMES); % int32(50);
 THRESHOLD = params.THRESHOLD; % 0.7;
 OUTPUT_TIFS = params.OUTPUT_TIFS; % true;
 OUTPUT_FF_TIFS = params.OUTPUT_FF_TIFS; % false;
-OUTPUT_AVIS = params.OUTPUT_TIFS; % false;
+OUTPUT_AVIS = params.OUTPUT_AVIS; % false;
 
 
 fNames=[];
