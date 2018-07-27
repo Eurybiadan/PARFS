@@ -1,14 +1,38 @@
-% Rob Cooper 06-30-2017
-%
+
 % This script is an moderately modified implementation of the algorithm outlined by Salmon et
 % al 2017: "An Automated Reference Frame Selection (ARFS) Algorithm for 
 % Cone Imaging with Adaptive Optics Scanning Light Ophthalmoscopy".
 %
 % At UPenn, we have decided to call it "PARFS: Pretty Accurate Reference
 % Frame Selection"
+%
+% Copyright (C) 2018  Robert F Cooper, Created 06-30-2017
+% 
+%     This program is free software: you can redistribute it and/or modify
+%     it under the terms of the GNU General Public License as published by
+%     the Free Software Foundation, either version 3 of the License, or
+%     (at your option) any later version.
+% 
+%     This program is distributed in the hope that it will be useful,
+%     but WITHOUT ANY WARRANTY; without even the implied warranty of
+%     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%     GNU General Public License for more details.
+% 
+%     You should have received a copy of the GNU General Public License
+%     along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 clear;
 close all force;
+
+% Check this version of PARFS against git.
+fid = fopen(fullfile(getparent(which(mfilename)),'.VERSION'),'r');
+if fid ~= -1
+    thisver = fscanf(fid,'%s');
+    fclose(fid);
+    
+    git_version_check( 'Eurybiadan', 'PARFS', thisver )
+        
+end
 
 params = PARF_Params;
 
@@ -109,13 +133,20 @@ lut=lut(keep_row,:);
 pp_fringes = cell2mat(lut(:,4));
 unique_pp_fringes = unique(pp_fringes);
 
-dmb_file_to_load=cell(size(lut,1),1);
-dmb_path_to_load=cell(size(lut,1),1);
+dmb_file_to_load=cell(size(stack_fname,1),1);
+dmb_path_to_load=cell(size(stack_fname,1),1);
+
+missingentries = size(stack_fname,1)-size(lut,1);
+if missingentries>0
+    warning('There are missing entries in your LUT file! Files without LUT will be ignored!');
+end
 
 for p=1:size(unique_pp_fringes,1)
     [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_pp_fringes(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
-    dmb_file_to_load(pp_fringes==unique_pp_fringes(p))={dmb_fname};
-    dmb_path_to_load(pp_fringes==unique_pp_fringes(p))={dmb_path};
+    
+    matching_fringes = padarray(pp_fringes==unique_pp_fringes(p),[missingentries 0],0,'post');
+    dmb_file_to_load( matching_fringes )={dmb_fname};
+    dmb_path_to_load( matching_fringes )={dmb_path};
 end
 
 load(fullfile(dmb_path_to_load{1}, dmb_file_to_load{1}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
@@ -177,186 +208,186 @@ refs = cell(size(stack_fname));
 num_frames = zeros(size(stack_fname));
 
 for f=1 : size(stack_fname,1)
-    
-    load(fullfile(dmb_path_to_load{f}, dmb_file_to_load{f}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
-    
-    default_dmb_contents.desinusoid_matrix = vertical_fringes_desinusoid_matrix';
-    default_dmb_contents.desinusoid_matrix = default_dmb_contents.desinusoid_matrix(:)';
-    default_dmb_contents.n_rows_desinusoided = int32(horizontal_fringes_n_rows);
-    default_dmb_contents.n_rows_raw_sequence = int32(horizontal_fringes_n_rows);
-    default_dmb_contents.n_columns_desinusoided= int32(size(vertical_fringes_desinusoid_matrix,1));
-    default_dmb_contents.n_columns_raw_sequence= int32(size(vertical_fringes_desinusoid_matrix,2));
-    
-    for m=1:size(stack_fname,2)
-        if ~isempty(stack_fname{f,m})
-            waitbar(f/size(stack_fname,1),h,['Processing video #' num2str(stack_fname{f,m}(end-7:end-4)) '...']);
-            break;
-        end
-    end
-        
-    try
-        for m=1 : size(stack_fname,2) 
-            
+    if ~isempty(dmb_path_to_load{f})
+        load(fullfile(dmb_path_to_load{f}, dmb_file_to_load{f}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
+
+        default_dmb_contents.desinusoid_matrix = vertical_fringes_desinusoid_matrix';
+        default_dmb_contents.desinusoid_matrix = default_dmb_contents.desinusoid_matrix(:)';
+        default_dmb_contents.n_rows_desinusoided = int32(horizontal_fringes_n_rows);
+        default_dmb_contents.n_rows_raw_sequence = int32(horizontal_fringes_n_rows);
+        default_dmb_contents.n_columns_desinusoided= int32(size(vertical_fringes_desinusoid_matrix,1));
+        default_dmb_contents.n_columns_raw_sequence= int32(size(vertical_fringes_desinusoid_matrix,2));
+
+        for m=1:size(stack_fname,2)
             if ~isempty(stack_fname{f,m})
-                tic;
-                [refs{f,m}, num_frames(f,m)] = extract_candidate_reference_frames(stack_fname{f,m}, vertical_fringes_desinusoid_matrix', STRIP_SIZE, BAD_STRIP_THRESHOLD, MIN_NUM_FRAMES_PER_GROUP);
-                toc;
-            end
-            
-        end
-    catch ex        
-        warning(['Failed to find a reference frame in:' stack_fname{f,m}])
-        warning(ex.message)
-        warning(['From file: ' ex.stack(1).name ' Line: ' num2str(ex.stack(1).line)]);
-    end
-    
-    % Look for correspondence between all of the modalities.
-    
-    %% NEED TO ADD GROUP SUPPORT!
-    intersected = [];
-
-    for m=1 : size(stack_fname,2)
-        intersected = union(intersected, refs{f,m});
-    end
-
-    intersected(intersected==-1) = [];
-
-    average_rank = nan(length(intersected),1);
-    for r=1:length(intersected)
-        of_interest = intersected(r);
-
-        whichind = size(stack_fname,2)*ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
-        for m=1 : size(stack_fname,2) 
-            rank = find( refs{f,m}==of_interest );
-            if ~isempty(rank)
-                whichind(m) = rank*MODALITY_WEIGHTS(m);
+                waitbar(f/size(stack_fname,1),h,['Processing video #' num2str(stack_fname{f,m}(end-7:end-4)) '...']);
+                break;
             end
         end
-        average_rank(r) = sum(whichind);
-    end
 
-    [rankings, rankinds ] = sort(average_rank,1,'ascend');
+        try
+            for m=1 : size(stack_fname,2) 
 
-    intersected = intersected(rankinds);
-    
-    % Go through each intersected value and determine which group its in;
-    % make separate rows in newrefs for disparate groups.
-    grps = -ones(length(intersected),size(stack_fname,2));
-    for i=1:length(intersected)
+                if ~isempty(stack_fname{f,m})
+                    tic;
+                    [refs{f,m}, num_frames(f,m)] = extract_candidate_reference_frames(stack_fname{f,m}, vertical_fringes_desinusoid_matrix', STRIP_SIZE, BAD_STRIP_THRESHOLD, MIN_NUM_FRAMES_PER_GROUP);
+                    toc;
+                end
+
+            end
+        catch ex        
+            warning(['Failed to find a reference frame in:' stack_fname{f,m}])
+            warning(ex.message)
+            warning(['From file: ' ex.stack(1).name ' Line: ' num2str(ex.stack(1).line)]);
+        end
+
+        % Look for correspondence between all of the modalities.
+
+        %% NEED TO ADD GROUP SUPPORT!
+        intersected = [];
+
         for m=1 : size(stack_fname,2)
-            [~, grp] = ind2sub( size(refs{f,m}), find(intersected(i)==refs{f,m}) );
-            if ~isempty(grp)
-                grps(i,m) = grp;
-            end
+            intersected = union(intersected, refs{f,m});
         end
-    end
 
-    newrefs = cell(1,100);    
-    for m=1:size(grps,2)
-        max_grp = max(grps(:,m));
-        for g=1:max_grp
-            
-            ingrp = intersected( grps(:,m)==g );
-            for n=1:length(newrefs)                
-                if isempty(newrefs{n})
-                    newrefs{n} = ingrp;
-                    break;
-                elseif ~isempty( intersect(newrefs{n}, ingrp ) )                    
-                    newrefs{n} = [newrefs{n}; setdiff(ingrp,cell2mat(newrefs'))]; % If it already has been called into any other group, then don't include it in this one.
-                    break;
-                end
-            end
-             
-        end
-    end
+        intersected(intersected==-1) = [];
 
-    newrefs = newrefs(~cellfun(@isempty,newrefs));
-    
-    for m=1:size(stack_fname,2)
-        if ~isempty(stack_fname{f,m})
-            vidnum = stack_fname{f,m}(end-7:end-4);
-            break;
-        end
-    end
-    
-    %% Re-rank them based on their location in the intersected list.
-    for g=1:length(newrefs)
-        theserefs = newrefs{g};
-        rankedrefs = -ones(size(theserefs));
-        for i=1:length(theserefs)
-            rankedrefs(i) = find(intersected==theserefs(i));
-        end
-        [rankings, rankinds ] = sort(rankedrefs);
-        newrefs{g} = theserefs(rankinds);
-      
-        % Find out which reference frames fit best with which modalities
-        if length(newrefs{g})>=NUM_REF_OUTPUT
-            bestrefs = newrefs{g}(1:NUM_REF_OUTPUT)';
-        else
-            bestrefs = padarray(newrefs{g},[NUM_REF_OUTPUT-length(newrefs{g}) 0], NaN,'post')';
-        end
-        ref_best_modality = cell(size(bestrefs));
-        ref_best_modality_inds = zeros(size(bestrefs));
-        
-        for r=1:length(bestrefs)
-            thisrefrank = 100*ones(1,size(refs,2));
-            for m=1:size(refs,2)
-                rank = find( refs{f,m}==bestrefs(r) );
+        average_rank = nan(length(intersected),1);
+        for r=1:length(intersected)
+            of_interest = intersected(r);
+
+            whichind = size(stack_fname,2)*ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
+            for m=1 : size(stack_fname,2) 
+                rank = find( refs{f,m}==of_interest );
                 if ~isempty(rank)
-                    thisrefrank(m) = rank;
+                    whichind(m) = rank*MODALITY_WEIGHTS(m);
                 end
             end
-            [~, refrank_ind] = min(thisrefrank); % Whichever has the lowest index (best rank), record as the suggested modality.
-            ref_best_modality{r} = MODALITIES{refrank_ind};
-            ref_best_modality_inds(r) = refrank_ind;
+            average_rank(r) = sum(whichind);
         end
-        
-        % Write all of this to disk.
-        fid= fopen(fullfile(mov_path{1},'Reference_Frames.csv'),'a');
-        
-        fprintf(fid,'"%s",',vidnum);
-        
-        for r=1:length(bestrefs)
-            fprintf(fid,'"%s",%d,',ref_best_modality{r},bestrefs(r));
-        end
-        fprintf(fid,'\n');
-        
-        fclose(fid);
-        
-        for r=1:length(bestrefs)
-            
-            if ~isnan(bestrefs(r))
-                dmb_contents = default_dmb_contents;
 
-                dmb_contents.reference_frame = int32(bestrefs(r)-1);
-                for m=1:length(MODALITIES)
-                    if m== ref_best_modality_inds(r)
-                        [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
-                        dmb_contents.n_frames = int32(num_frames(f,m));
-                    elseif ~isempty(stack_fname{f,m})
-                        [par, kid]=getparent(stack_fname{f,m});
-                        dmb_contents.secondary_sequences_file_names = [dmb_contents.secondary_sequences_file_names; {kid}];
-                        dmb_contents.secondary_sequences_absolute_paths = [dmb_contents.secondary_sequences_absolute_paths; {par}];                    
+        [rankings, rankinds ] = sort(average_rank,1,'ascend');
+
+        intersected = intersected(rankinds);
+
+        % Go through each intersected value and determine which group its in;
+        % make separate rows in newrefs for disparate groups.
+        grps = -ones(length(intersected),size(stack_fname,2));
+        for i=1:length(intersected)
+            for m=1 : size(stack_fname,2)
+                [~, grp] = ind2sub( size(refs{f,m}), find(intersected(i)==refs{f,m}) );
+                if ~isempty(grp)
+                    grps(i,m) = grp;
+                end
+            end
+        end
+
+        newrefs = cell(1,100);    
+        for m=1:size(grps,2)
+            max_grp = max(grps(:,m));
+            for g=1:max_grp
+
+                ingrp = intersected( grps(:,m)==g );
+                for n=1:length(newrefs)                
+                    if isempty(newrefs{n})
+                        newrefs{n} = ingrp;
+                        break;
+                    elseif ~isempty( intersect(newrefs{n}, ingrp ) )                    
+                        newrefs{n} = [newrefs{n}; setdiff(ingrp,cell2mat(newrefs'))]; % If it already has been called into any other group, then don't include it in this one.
+                        break;
                     end
                 end
-                dmb_contents.user_defined_suffix = ['_ref_' num2str(bestrefs(r)) '_lps_' num2str(LPS) '_lbss_' num2str(LBSS) '_autogen' ];
 
-                if isempty(dmb_contents.secondary_sequences_file_names)
-                   dmb_contents.secondary_sequences_file_names=''; 
-                end
-                if isempty(dmb_contents.secondary_sequences_absolute_paths)
-                   dmb_contents.secondary_sequences_absolute_paths=''; 
-                end
-
-%                  save('test.mat','dmb_contents');
-                write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
             end
         end
 
-    end
+        newrefs = newrefs(~cellfun(@isempty,newrefs));
 
-    
-    
+        for m=1:size(stack_fname,2)
+            if ~isempty(stack_fname{f,m})
+                vidnum = stack_fname{f,m}(end-7:end-4);
+                break;
+            end
+        end
+
+        %% Re-rank them based on their location in the intersected list.
+        for g=1:length(newrefs)
+            theserefs = newrefs{g};
+            rankedrefs = -ones(size(theserefs));
+            for i=1:length(theserefs)
+                rankedrefs(i) = find(intersected==theserefs(i));
+            end
+            [rankings, rankinds ] = sort(rankedrefs);
+            newrefs{g} = theserefs(rankinds);
+
+            % Find out which reference frames fit best with which modalities
+            if length(newrefs{g})>=NUM_REF_OUTPUT
+                bestrefs = newrefs{g}(1:NUM_REF_OUTPUT)';
+            else
+                bestrefs = padarray(newrefs{g},[NUM_REF_OUTPUT-length(newrefs{g}) 0], NaN,'post')';
+            end
+            ref_best_modality = cell(size(bestrefs));
+            ref_best_modality_inds = zeros(size(bestrefs));
+
+            for r=1:length(bestrefs)
+                thisrefrank = 100*ones(1,size(refs,2));
+                for m=1:size(refs,2)
+                    rank = find( refs{f,m}==bestrefs(r) );
+                    if ~isempty(rank)
+                        thisrefrank(m) = rank;
+                    end
+                end
+                [~, refrank_ind] = min(thisrefrank); % Whichever has the lowest index (best rank), record as the suggested modality.
+                ref_best_modality{r} = MODALITIES{refrank_ind};
+                ref_best_modality_inds(r) = refrank_ind;
+            end
+
+            % Write all of this to disk.
+            fid= fopen(fullfile(mov_path{1},'Reference_Frames.csv'),'a');
+
+            fprintf(fid,'"%s",',vidnum);
+
+            for r=1:length(bestrefs)
+                fprintf(fid,'"%s",%d,',ref_best_modality{r},bestrefs(r));
+            end
+            fprintf(fid,'\n');
+
+            fclose(fid);
+
+            for r=1:length(bestrefs)
+
+                if ~isnan(bestrefs(r))
+                    dmb_contents = default_dmb_contents;
+
+                    dmb_contents.reference_frame = int32(bestrefs(r)-1);
+                    for m=1:length(MODALITIES)
+                        if m== ref_best_modality_inds(r)
+                            [dmb_contents.image_sequence_absolute_path, dmb_contents.image_sequence_file_name]=getparent(stack_fname{f,m});
+                            dmb_contents.n_frames = int32(num_frames(f,m));
+                        elseif ~isempty(stack_fname{f,m})
+                            [par, kid]=getparent(stack_fname{f,m});
+                            dmb_contents.secondary_sequences_file_names = [dmb_contents.secondary_sequences_file_names; {kid}];
+                            dmb_contents.secondary_sequences_absolute_paths = [dmb_contents.secondary_sequences_absolute_paths; {par}];                    
+                        end
+                    end
+                    dmb_contents.user_defined_suffix = ['_ref_' num2str(bestrefs(r)) '_lps_' num2str(LPS) '_lbss_' num2str(LBSS) '_autogen' ];
+
+                    if isempty(dmb_contents.secondary_sequences_file_names)
+                       dmb_contents.secondary_sequences_file_names=''; 
+                    end
+                    if isempty(dmb_contents.secondary_sequences_absolute_paths)
+                       dmb_contents.secondary_sequences_absolute_paths=''; 
+                    end
+
+    %                  save('test.mat','dmb_contents');
+                    write_dmb_file(fullfile(mov_path{1}, [dmb_contents.image_sequence_file_name(1:end-4) dmb_contents.user_defined_suffix '.dmb']),dmb_contents);
+                end
+            end
+
+        end
+
+
+    end
 end
 
 
