@@ -38,7 +38,7 @@ params = PARF_Params;
 
 NUM_REF_OUTPUT = params.NUM_REF_OUTPUT; % 5;
 MODALITIES = params.MODALITIES; % {'confocal','split_det','avg'}; % The modalities to search for.
-MODALITY_WEIGHTS = params.MODALITY_WEIGHTS; % [1/3 1/3 1/3]; % The weights applied to each modality. Adjust these values if you want the first modality (say, confocal) to carry more weight in the reference frame choice.
+MODALITY_WEIGHTS = 1-params.MODALITY_WEIGHTS; % [1/3 1/3 1/3]; % The weights applied to each modality. Adjust these values if you want the first modality (say, confocal) to carry more weight in the reference frame choice.
 STRIP_SIZE = params.STRIP_SIZE; % 40; % The size of the strip at which we'll analyze the distortion
 BAD_STRIP_THRESHOLD = params.BAD_STRIP_THRESHOLD; % 0; % Having more bad strips than this will result in a frame's removal from consideration.
 MIN_NUM_FRAMES_PER_GROUP = params.MIN_NUM_FRAMES_PER_GROUP; % 5; % A group must have more than this number of frames otherwise it will be dropped from consideration
@@ -241,9 +241,7 @@ for f=1 : size(stack_fname,1)
             warning(['From file: ' ex.stack(1).name ' Line: ' num2str(ex.stack(1).line)]);
         end
 
-        % Look for correspondence between all of the modalities.
-
-        %% NEED TO ADD GROUP SUPPORT!
+        %% Look for correspondence between all of the modalities.
         intersected = [];
 
         for m=1 : size(stack_fname,2)
@@ -256,13 +254,16 @@ for f=1 : size(stack_fname,1)
         for r=1:length(intersected)
             of_interest = intersected(r);
 
-            whichind = size(stack_fname,2)*ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
-            for m=1 : size(stack_fname,2) 
+            whichind = ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
+            for m=1 : size(stack_fname,2)
+                whichind(m) = length(refs{f,m});
                 rank = find( refs{f,m}==of_interest );
                 if ~isempty(rank)
+                    rank
                     whichind(m) = rank*MODALITY_WEIGHTS(m);
                 end
             end
+            
             average_rank(r) = sum(whichind);
         end
 
@@ -332,9 +333,9 @@ for f=1 : size(stack_fname,1)
             for r=1:length(bestrefs)
                 thisrefrank = 100*ones(1,size(refs,2));
                 for m=1:size(refs,2)
-                    rank = find( refs{f,m}==bestrefs(r) );
+                    rank = find( refs{f,m}==bestrefs(r) )
                     if ~isempty(rank)
-                        thisrefrank(m) = rank;
+                        thisrefrank(m) = rank*MODALITY_WEIGHTS(m);
                     end
                 end
                 [~, refrank_ind] = min(thisrefrank); % Whichever has the lowest index (best rank), record as the suggested modality.
