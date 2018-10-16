@@ -89,7 +89,16 @@ dataSummary{1} = 'Input Data Summary:';
 stack_fname = cell(length(fNames), length(MODALITIES));
 for f=1:length(fNames)
     if ~isempty(fNames{f})
-        searchind = fNames{f}(end-8:end);        
+        
+        for m = 1:length(MODALITIES) % Find where the modality string is- everything after that, consider to be unique.
+            modeind = strfind(fNames{f}, MODALITIES{m});
+            if ~isempty(modeind)
+               modeind = modeind+length(MODALITIES{m});
+               break; 
+            end
+        end
+        
+        searchind = fNames{f}(modeind:end);
         samevideos = sort(fNames(~cellfun(@isempty, strfind(fNames, searchind)))); 
 
         for m = 1:length(MODALITIES)
@@ -235,7 +244,8 @@ for f=1 : size(stack_fname,1)
                 end
 
             end
-        catch ex        
+        catch ex
+            warning on;
             warning(['Failed to find a reference frame in:' stack_fname{f,m}])
             warning(ex.message)
             warning(['From file: ' ex.stack(1).name ' Line: ' num2str(ex.stack(1).line)]);
@@ -259,7 +269,7 @@ for f=1 : size(stack_fname,1)
                 whichind(m) = length(refs{f,m});
                 rank = find( refs{f,m}==of_interest );
                 if ~isempty(rank)
-                    rank
+%                     rank
                     whichind(m) = rank*MODALITY_WEIGHTS(m);
                 end
             end
@@ -333,7 +343,7 @@ for f=1 : size(stack_fname,1)
             for r=1:length(bestrefs)
                 thisrefrank = 100*ones(1,size(refs,2));
                 for m=1:size(refs,2)
-                    rank = find( refs{f,m}==bestrefs(r) )
+                    rank = find( refs{f,m}==bestrefs(r) );
                     if ~isempty(rank)
                         thisrefrank(m) = rank*MODALITY_WEIGHTS(m);
                     end

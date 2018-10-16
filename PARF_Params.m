@@ -128,6 +128,7 @@ if isnan(value)
 else
     handles.NUM_REF_OUTPUT = value;
 end
+guidata(hObject, handles);
 % Hints: get(hObject,'String') returns contents of num_ref_output as text
 %        str2double(get(hObject,'String')) returns contents of num_ref_output as a double
 

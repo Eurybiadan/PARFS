@@ -3,6 +3,7 @@ function [ reference_frames, totalNumFrames ] = extract_candidate_reference_fram
 % frames from a input video.
 %   [reference_frames] = EXTRACT_CANDIDATE_REFERENCE_FRAMES( fName, pName,desinusoid_matrix, STRIP_SIZE, BAD_STRIP_THRESHOLD, NUM_FRM_PER_GROUP )
 
+    frame_range = 70:92;
 
     vidReader = VideoReader( fPathName );
     
@@ -13,14 +14,18 @@ function [ reference_frames, totalNumFrames ] = extract_candidate_reference_fram
         frame_mean(i) = mean2(image_stack(:,:,i));
         i = i+1;
     end
+        
     numFrames = i-1;
+    frame_contenders = (1:numFrames);
+    totalNumFrames = length(frame_contenders);
     
+    if ~isempty(frame_range)
+        frame_contenders = frame_contenders(frame_range);
+    end
+            
     % Get some basic heuristics from each modality.
     mode_mean = mean(frame_mean(:));
     mode_dev = std(frame_mean(:));
-
-    frame_contenders = (1:numFrames);
-    totalNumFrames = numFrames;
 
     strip_inds = 0:STRIP_SIZE:size(image_stack(:,:,1),1);
     strip_inds(1) = 1;
@@ -35,8 +40,8 @@ function [ reference_frames, totalNumFrames ] = extract_candidate_reference_fram
     
     %% Filter by image mean
     mean_contenders = false(1,numFrames);
-    for f=1:numFrames        
-        mean_contenders(f) =  (frame_mean(f) < mode_mean+2*mode_dev);% &&...
+    for f=1:length(frame_contenders)        
+        mean_contenders(f) =  (frame_mean(frame_contenders(f)) < mode_mean+2*mode_dev);% &&...
                               %(frame_mean(f,modalityInd) > mode_mean(modalityInd)-2*mode_dev(modalityInd));
     end
     
