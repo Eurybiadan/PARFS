@@ -278,33 +278,56 @@ for f=1 : size(stack_fname,1)
 
         %% Look for correspondence between all of the modalities.
         intersected = [];
-% MODALITY_WEIGHTS=[.5 .75 .75];
+
         for m=1 : size(stack_fname,2)
             intersected = union(intersected, refs{f,m});
         end
 
         intersected(intersected==-1) = [];
 
+        % First consider frames that appear in all 3 modalities.
         average_rank = nan(length(intersected),1);
         for r=1:length(intersected)
             of_interest = intersected(r);
 
-            whichind = length(intersected)*ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
+            whichind = NaN(size(stack_fname,2) ,1);
             for m=1 : size(stack_fname,2)
-                whichind(m) = length(refs{f,m});
+                whichind(m) = NaN;% Negate a frame if it doesnt' appear in all modalities.
                 rank = find( refs{f,m}==of_interest );
                 if ~isempty(rank)
-%                     rank
                     whichind(m) = rank*MODALITY_WEIGHTS(m);
                 end
             end
-%             tmpindtrack(r,:)=whichind;
             average_rank(r) = sum(whichind)./ sum(MODALITY_WEIGHTS);
         end
 
         [rankings, rankinds ] = sort(average_rank,1,'ascend');
 
-        intersected = intersected(rankinds);
+        notallmodes_intersected = intersected(rankinds(isnan(rankings)));  
+        intersected = intersected(rankinds(~isnan(rankings)));        
+        
+        % Then consider all the other frames.
+        average_rank = nan(length(notallmodes_intersected),1);
+        for r=1:length(notallmodes_intersected)
+            of_interest = notallmodes_intersected(r);
+
+            whichind = ones(size(stack_fname,2) ,1); 
+            for m=1 : size(stack_fname,2)
+                whichind(m) = length(refs{f,m})-length(intersected);% Weight heavily against a reference frame if it doesn't show in all modalities.
+                rank = find( refs{f,m}==of_interest );
+                if ~isempty(rank)
+                    whichind(m) = rank*MODALITY_WEIGHTS(m);
+                end
+            end
+
+            average_rank(r) = sum(whichind)./ sum(MODALITY_WEIGHTS);
+        end
+
+        [rankings, rankinds ] = sort(average_rank,1,'ascend');
+
+        notallmodes_intersected = notallmodes_intersected(rankinds);
+        
+        intersected = [intersected; notallmodes_intersected];
 
         % Go through each intersected value and determine which group its in;
         % make separate rows in newrefs for disparate groups.
@@ -365,10 +388,19 @@ for f=1 : size(stack_fname,1)
             ref_best_modality = cell(size(bestrefs));
             ref_best_modality_inds = zeros(size(bestrefs));
 
+            rel_ref = cell(size(refs(f,:)));% Compare each frame we've picked out relative to each other in their lists;
+                                               % We only care if x is better than y, not if x is 3 indexes better than y
+            for m=1:length(MODALITIES)
+                if ~isempty(refs{f,m})
+                    rel_ref_inds = find(sum(bestrefs==refs{f,m},2));
+                    rel_ref{m} = refs{f,m}(rel_ref_inds);
+                end
+            end
+            
             for r=1:length(bestrefs)
                 thisrefrank = 100*ones(1,size(refs,2));
                 for m=1:size(refs,2)
-                    rank = find( refs{f,m}==bestrefs(r) );
+                    rank = find( rel_ref{m}==bestrefs(r) );
                     if ~isempty(rank)
                         thisrefrank(m) = rank*MODALITY_WEIGHTS(m);
                     end
