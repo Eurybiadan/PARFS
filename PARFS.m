@@ -93,7 +93,7 @@ for f=1:length(fNames)
         for m = 1:length(MODALITIES) % Find where the modality string is- everything after that, consider to be unique.
             modeind = strfind(fNames{f}, MODALITIES{m});
             if ~isempty(modeind)
-               modeind = modeind+length(MODALITIES{m});
+               modeind = modeind(end)+length(MODALITIES{m});
                break; 
             end
         end
@@ -120,14 +120,33 @@ end
 stack_fname = stack_fname(keep_row,:);
 
 
-[lut_fname, lut_path]=uigetfile(fullfile(mov_path{1},'*.xlsx'),'Select LUT file:');
+[lut_fname, lut_path]=uigetfile({ '*.csv', 'LUT Files (*.csv)'; '*.xlsx', 'Legacy LUT Format (*.xlsx)' }, ...
+                                'Select LUT file:', mov_path{1});
+if strcmp(lut_fname(end-3:end), '.csv')
+    lut = readtable(fullfile(lut_path,lut_fname));
+    headers = lut.Properties.VariableNames;
+    version = headers{1};
 
-[~,~,lut]=xlsread(fullfile(lut_path,lut_fname));
+    switch(version)            
+        case 'v0_1'
+            lut = table2cell(lut);
+            lut(:,1) = cellfun(@(x) ['_' num2str( x,'%04.0f') '_'], lut(:,1),'UniformOutput',false);
+            scales = cell2mat(lut(:,4));
+    end
+else
+    version = 'legacy';
+    [~,~,lut]=xlsread(fullfile(lut_path,lut_fname));
+    scales = cell2mat(lut(:,4));
+end
+
+if all(ischar(scales))
+    scales = str2num(scales);
+end
 
 if ~exist('contains','builtin')
     contains = @(s,p) ~isempty(strfind(s,p));
 end
-    
+
 keep_row = false(size(lut,1),1);
 for l=1:size(lut,1)
     for f=1 : size(stack_fname,1)
@@ -139,8 +158,9 @@ for l=1:size(lut,1)
 end
 lut=lut(keep_row,:);
 
-pp_fringes = cell2mat(lut(:,4));
-unique_pp_fringes = unique(pp_fringes);
+
+unique_scales = unique(scales);
+unique_scales(isnan(unique_scales)) = [];
 
 dmb_file_to_load=cell(size(stack_fname,1),1);
 dmb_path_to_load=cell(size(stack_fname,1),1);
@@ -150,10 +170,15 @@ if missingentries>0
     warning('There are missing entries in your LUT file! Files without LUT will be ignored!');
 end
 
-for p=1:size(unique_pp_fringes,1)
-    [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_pp_fringes(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
+for p=1:size(unique_scales,1)
+    switch(version)            
+        case 'v0_1'
+            [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_scales(p)) '*** degree FOV DESINUSOIDING file!' ]);
+        case 'legacy'
+            [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_scales(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
+    end
     
-    matching_fringes = padarray(pp_fringes==unique_pp_fringes(p),[missingentries 0],0,'post');
+    matching_fringes = padarray(scales==unique_scales(p),[missingentries 0],0,'post');
     dmb_file_to_load( matching_fringes )={dmb_fname};
     dmb_path_to_load( matching_fringes )={dmb_path};
 end
@@ -253,7 +278,7 @@ for f=1 : size(stack_fname,1)
 
         %% Look for correspondence between all of the modalities.
         intersected = [];
-
+% MODALITY_WEIGHTS=[.5 .75 .75];
         for m=1 : size(stack_fname,2)
             intersected = union(intersected, refs{f,m});
         end
@@ -264,7 +289,7 @@ for f=1 : size(stack_fname,1)
         for r=1:length(intersected)
             of_interest = intersected(r);
 
-            whichind = ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
+            whichind = length(intersected)*ones(size(stack_fname,2) ,1); % Weight heavily against a reference frame if it doesn't show in all modalities.
             for m=1 : size(stack_fname,2)
                 whichind(m) = length(refs{f,m});
                 rank = find( refs{f,m}==of_interest );
@@ -273,8 +298,8 @@ for f=1 : size(stack_fname,1)
                     whichind(m) = rank*MODALITY_WEIGHTS(m);
                 end
             end
-            
-            average_rank(r) = sum(whichind);
+%             tmpindtrack(r,:)=whichind;
+            average_rank(r) = sum(whichind)./ sum(MODALITY_WEIGHTS);
         end
 
         [rankings, rankinds ] = sort(average_rank,1,'ascend');
