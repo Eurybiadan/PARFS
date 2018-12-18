@@ -86,6 +86,8 @@ try
 catch me
     if strcmp(me.identifier, 'MATLAB:webservices:HTTP404StatusCodeError')
         warning(['Failed to read: ' repoapisite '. Unable to connect to GitHub, OR working from a copy of the repo that does not yet have a release. YMMV!'])
+    elseif strcmp(me.identifier, 'MATLAB:webservices:HTTP403StatusCodeError')
+        warning(['Failed to read: ' repoapisite '. Unable to connect to GitHub because you''ve run the software too much!'])
     else
         rethrow(me);
     end
