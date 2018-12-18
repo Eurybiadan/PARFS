@@ -148,15 +148,17 @@ if ~exist('contains','builtin')
 end
 
 keep_row = false(size(lut,1),1);
-for l=1:size(lut,1)
+find_row = zeros(size(stack_fname,1),1);
+for i=1:size(lut,1)
     for f=1 : size(stack_fname,1)
-        if ~all(isnan(lut{l,1})) && contains(stack_fname{f,1},lut{l,1})
-            keep_row(l)=true;
+        if ~all(isnan(lut{i,1})) && contains(stack_fname{f,1},lut{i,1})
+            keep_row(i)=true;
+            find_row(f) = i; % Log which row we match so we don't have to run this again.
             continue;
         end
     end
 end
-lut=lut(keep_row,:);
+% lut=lut(keep_row,:);
 
 
 unique_scales = unique(scales);
@@ -167,7 +169,7 @@ dmb_path_to_load=cell(size(stack_fname,1),1);
 
 missingentries = size(stack_fname,1)-size(lut,1);
 if missingentries>0
-    warning('There are missing entries in your LUT file! Files without LUT will be ignored!');
+    warning('There may be missing entries in your LUT file! Files without LUT will be ignored!');
 end
 
 for p=1:size(unique_scales,1)
@@ -178,9 +180,12 @@ for p=1:size(unique_scales,1)
             [dmb_fname, dmb_path]=uigetfile(fullfile(lut_path,'*.mat'),['Select the ***' num2str(unique_scales(p)) '*** pixels per fringe DESINUSOIDING file!' ]);
     end
     
-    matching_fringes = padarray(scales==unique_scales(p),[missingentries 0],0,'post');
-    dmb_file_to_load( matching_fringes )={dmb_fname};
-    dmb_path_to_load( matching_fringes )={dmb_path};
+    for f=1 : size(stack_fname,1) % Go through all of the entries that match this scale in our file list, and assign them the desinusoid filename
+        if lut{find_row(f),5} == unique_scales(p)
+            dmb_file_to_load(f)={dmb_fname};
+            dmb_path_to_load(f)={dmb_path};
+        end
+    end
 end
 
 load(fullfile(dmb_path_to_load{1}, dmb_file_to_load{1}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
@@ -202,7 +207,7 @@ default_dmb_contents = struct('frame_strip_ncc_threshold', THRESHOLD,...
        'frame_strip_lines_between_strips_start', LBSS,...
        'n_frames', 0,...
        'save_strip_registered_sequence', OUTPUT_AVIS,...
-       'frame_strip_ncc_n_columns_to_ignore', int32(150),...       
+       'frame_strip_ncc_n_columns_to_ignore', int32(200),...       
        'image_sequence_absolute_path', mov_path{1},...       
        'fast_scanning_horizontal', true,...
        'n_rows_desinusoided', int32(horizontal_fringes_n_rows),...
@@ -210,7 +215,7 @@ default_dmb_contents = struct('frame_strip_ncc_threshold', THRESHOLD,...
        'desinusoid_data_filename', dmb_file_to_load{1},...
        'desinusoid_data_absolute_path', dmb_path_to_load{1},...    
        'strip_DCT_terms_retained_percentage', int32(50),...
-       'frame_strip_ncc_n_rows_to_ignore', int32(3),...
+       'frame_strip_ncc_n_rows_to_ignore', LBSS,...
        'desinusoid_matrix', desinusoid_matrix(:),...
        'strip_max_displacement_threshold', int32(200),...
        'full_frame_max_displacement_threshold', int32(200),...
