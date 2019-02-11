@@ -130,7 +130,7 @@ if strcmp(lut_fname(end-3:end), '.csv')
     switch(version)            
         case 'v0_1'
             lut = table2cell(lut);
-            lut(:,1) = cellfun(@(x) ['_' num2str( x,'%04.0f') '_'], lut(:,1),'UniformOutput',false);
+            lut(:,1) = cellfun(@(x) ['_' num2str( x,'%04.0f')], lut(:,1),'UniformOutput',false);
             scales = cell2mat(lut(:,4));
     end
 else
@@ -160,7 +160,7 @@ for i=1:size(lut,1)
 end
 % lut=lut(keep_row,:);
 
-
+%%
 unique_scales = unique(scales);
 unique_scales(isnan(unique_scales)) = [];
 
@@ -181,17 +181,27 @@ for p=1:size(unique_scales,1)
     end
     
     for f=1 : size(stack_fname,1) % Go through all of the entries that match this scale in our file list, and assign them the desinusoid filename
-        if lut{find_row(f),5} == unique_scales(p)
-            dmb_file_to_load(f)={dmb_fname};
-            dmb_path_to_load(f)={dmb_path};
+        if find_row(f) ~= 0
+            if lut{find_row(f),5} == unique_scales(p)
+                dmb_file_to_load(f)={dmb_fname};
+                dmb_path_to_load(f)={dmb_path};
+            end
+        else
+            dmb_file_to_load(f)={NaN};
+            dmb_path_to_load(f)={NaN};
         end
     end
 end
 
-load(fullfile(dmb_path_to_load{1}, dmb_file_to_load{1}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
+for f=1 : size(stack_fname,1)
+    if ~isnan(dmb_path_to_load{f})
+        load(fullfile(dmb_path_to_load{f}, dmb_file_to_load{f}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
+        break;
+    end
+end
 
 desinusoid_matrix = vertical_fringes_desinusoid_matrix;
-
+%%
 
 
 default_dmb_contents = struct('frame_strip_ncc_threshold', THRESHOLD,...
@@ -395,11 +405,24 @@ for f=1 : size(stack_fname,1)
 
             rel_ref = cell(size(refs(f,:)));% Compare each frame we've picked out relative to each other in their lists;
                                                % We only care if x is better than y, not if x is 3 indexes better than y
+
+            % This works in >2017b
+%             for m=1:length(MODALITIES)
+%                 if ~isempty(refs{f,m})
+%                     rel_ref_inds = find(sum(bestrefs==refs{f, m},2));
+%                     rel_ref{m} = refs{f,m}(rel_ref_inds);
+%                 end
+%             end
+%             
+%             
+            % This horrifying thing works everywhere
             for m=1:length(MODALITIES)
-                if ~isempty(refs{f,m})
-                    rel_ref_inds = find(sum(bestrefs==refs{f,m},2));
-                    rel_ref{m} = refs{f,m}(rel_ref_inds);
+                for b=1:length(bestrefs)
+                    if ~isempty(refs{f,m})
+                        rel_ref{m} = [rel_ref{m} (bestrefs(b)==refs{f, m})];
+                    end
                 end
+                rel_ref{m} = refs{f,m}(find(sum(rel_ref{m},2)));
             end
             
             for r=1:length(bestrefs)
