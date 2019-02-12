@@ -119,7 +119,7 @@ for i=1:size(stack_fname,1)
 end
 stack_fname = stack_fname(keep_row,:);
 
-
+%% Load the LUT
 [lut_fname, lut_path]=uigetfile({ '*.csv', 'LUT Files (*.csv)'; '*.xlsx', 'Legacy LUT Format (*.xlsx)' }, ...
                                 'Select LUT file:', mov_path{1});
 if strcmp(lut_fname(end-3:end), '.csv')
@@ -257,7 +257,7 @@ refs = cell(size(stack_fname));
 num_frames = zeros(size(stack_fname));
 
 for f=1 : size(stack_fname,1)
-    if ~isempty(dmb_path_to_load{f})
+    if ~isnan(dmb_path_to_load{f}) || ~isempty(dmb_path_to_load{f})
         load(fullfile(dmb_path_to_load{f}, dmb_file_to_load{f}),'horizontal_fringes_n_rows','vertical_fringes_desinusoid_matrix');
 
         default_dmb_contents.desinusoid_matrix = vertical_fringes_desinusoid_matrix';
@@ -291,7 +291,7 @@ for f=1 : size(stack_fname,1)
             warning(['From file: ' ex.stack(1).name ' Line: ' num2str(ex.stack(1).line)]);
         end
 
-        %% Look for correspondence between all of the modalities.
+        % Look for correspondence between all of the modalities.
         intersected = [];
 
         for m=1 : size(stack_fname,2)
@@ -384,7 +384,7 @@ for f=1 : size(stack_fname,1)
             end
         end
 
-        %% Re-rank them based on their location in the intersected list.
+        % Re-rank them based on their location in the intersected list.
         for g=1:length(newrefs)
             theserefs = newrefs{g};
             rankedrefs = -ones(size(theserefs));
