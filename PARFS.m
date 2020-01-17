@@ -407,23 +407,28 @@ for f=1 : size(stack_fname,1)
                                                % We only care if x is better than y, not if x is 3 indexes better than y
 
             % This works in >2017b
-%             for m=1:length(MODALITIES)
-%                 if ~isempty(refs{f,m})
-%                     rel_ref_inds = find(sum(bestrefs==refs{f, m},2));
-%                     rel_ref{m} = refs{f,m}(rel_ref_inds);
-%                 end
-%             end
-%             
-%             
-            % This horrifying thing works everywhere
-            for m=1:length(MODALITIES)
-                for b=1:length(bestrefs)
+            thisvers = version('-release');
+            if str2num(thisvers(1:end-1)) > 2017 || strcmp(thisvers,'2017b') 
+                for m=1:length(MODALITIES)
                     if ~isempty(refs{f,m})
-                        rel_ref{m} = [rel_ref{m} (bestrefs(b)==refs{f, m})];
+                        rel_ref_inds = find(sum(bestrefs==refs{f, m},2));
+                        rel_ref{m} = refs{f,m}(rel_ref_inds);
                     end
                 end
-                rel_ref{m} = refs{f,m}(find(sum(rel_ref{m},2)));
+            else
+                % This horrifying thing works everywhere
+                for m=1:length(MODALITIES)
+                    for b=1:length(bestrefs)
+                        if ~isempty(refs{f,m})
+                            rel_ref{m} = [rel_ref{m} (bestrefs(b)==refs{f, m})];
+                        end
+                    end
+                    rel_ref{m} = refs{f,m}(find(sum(rel_ref{m},2)));
+                end
             end
+            
+            
+            
             
             for r=1:length(bestrefs)
                 thisrefrank = 100*ones(1,size(refs,2));
@@ -434,6 +439,11 @@ for f=1 : size(stack_fname,1)
                     end
                 end
                 [~, refrank_ind] = min(thisrefrank); % Whichever has the lowest index (best rank), record as the suggested modality.
+                
+                if any(MODALITY_WEIGHTS==1)
+                    refrank_ind = find(MODALITY_WEIGHTS==1);
+                end
+                
                 ref_best_modality{r} = MODALITIES{refrank_ind};
                 ref_best_modality_inds(r) = refrank_ind;
             end

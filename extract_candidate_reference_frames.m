@@ -3,7 +3,7 @@ function [ reference_frames, totalNumFrames ] = extract_candidate_reference_fram
 % frames from a input video.
 %   [reference_frames] = EXTRACT_CANDIDATE_REFERENCE_FRAMES( fName, pName,desinusoid_matrix, STRIP_SIZE, BAD_STRIP_THRESHOLD, NUM_FRM_PER_GROUP )
 
-    frame_range = []; %70:92;
+    frame_range = 70:92;
 
     vidReader = VideoReader( fPathName );
     
